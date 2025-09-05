@@ -1,0 +1,27 @@
+{
+  "canisters": {
+    "guardian-vault-backend": {
+      "candid": "src/guardian-vault-backend/guardian-vault-backend.did",
+      "package": "guardian-vault-backend",
+      "type": "rust"
+    },
+    "guardian-vault-frontend": {
+      "dependencies": [
+        "guardian-vault-backend"
+      ],
+      "source": [
+        "src/guardian-vault-frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "guardian-vault-frontend"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}

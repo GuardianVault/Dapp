@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "src/guardian-vault-backend"
+]
+resolver = "2"
