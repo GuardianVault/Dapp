@@ -1,3 +1,55 @@
+type Principal = principal;
+
+type Icrc1Account = record {
+  owner: Principal;
+  subaccount: opt vec nat8;
+};
+
+type TransferError = variant {
+  BadFee: record { expected_fee: nat };
+  BadBurn: record { min_burn_amount: nat };
+  InsufficientFunds: record { balance: nat };
+  TooOld: null;
+  CreatedInFuture: record { ledger_time: nat64 };
+  TemporarilyUnavailable: null;
+  Duplicate: record { duplicate_of: nat };
+  GenericError: record { error_code: nat; message: text };
+};
+
+type Config = record {
+  ckbtc_ledger: Principal;
+  ckbtc_minter: Principal;
+  ecdsa_key_name: text;
+};
+
+type GuardianState = record {
+  guardians: vec Principal;
+  quorum: nat8;
+  owner: Principal;
+};
+
+type RecoveryRequest = record {
+  id: nat64;
+  new_owner: Principal;
+  approvals: vec Principal;
+  open: bool;
+};
+
+// Generic result helpers
+type Result<T> = variant { ok: T; err: text };
+
 service : {
-    "greet": (text) -> (text) query;
+  "greet": (text) -> (text) query;
+  "get_guardians": () -> (opt GuardianState) query;
+  "set_config": (Principal, Principal, text) -> (Result<null>);
+  "set_guardians": (vec Principal, nat8) -> (Result<null>);
+  "request_recovery": (Principal) -> (Result<nat64>);
+  "approve_recovery": (nat64) -> (Result<bool>);
+  "recovery_status": (nat64) -> (opt RecoveryRequest) query;
+  "ckbtc_balance_of": (opt vec nat8) -> (Result<nat>) query;
+  "ckbtc_transfer": (Principal, opt vec nat8, nat, opt nat) -> (Result<nat>);
+  "ecdsa_public_key": (vec vec nat8) -> (Result<vec nat8>) query;
+  "sign_with_ecdsa": (vec nat8, vec vec nat8) -> (Result<vec nat8>) query;
+  "vetkd_public_key": (vec nat8) -> (Result<vec nat8>) query;
+  "vetkd_encrypted_key": (vec nat8, vec nat8, vec nat8) -> (Result<vec nat8>) query;
 }

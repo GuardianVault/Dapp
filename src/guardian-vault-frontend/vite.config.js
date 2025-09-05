@@ -1,6 +1,7 @@
 import { fileURLToPath, URL } from 'url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 import environment from 'vite-plugin-environment';
 import dotenv from 'dotenv';
 
@@ -29,6 +30,11 @@ export default defineConfig({
     react(),
     environment("all", { prefix: "CANISTER_" }),
     environment("all", { prefix: "DFX_" }),
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: false,
+      workbox: { skipWaiting: true, clientsClaim: true },
+    }),
   ],
   resolve: {
     alias: [

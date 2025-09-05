@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Guardian Vault</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; width: 320px; }
+      .btn { background: #29ABE2; color:#0a0b0f; border:none; padding:.5rem .8rem; border-radius:8px; cursor:pointer; font-weight:600; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    </style>
+  </head>
+  <body>
+    <h3>Guardian Vault</h3>
+    <p class="mono" id="status">Ready</p>
+    <button class="btn" id="ping">Ping Background</button>
+    <script type="module">
+      document.getElementById('ping').onclick = async () => {
+        const res = await chrome.runtime.sendMessage({ ping: true });
+        document.getElementById('status').textContent = JSON.stringify(res);
+      };
+    </script>
+  </body>
+  </html>
