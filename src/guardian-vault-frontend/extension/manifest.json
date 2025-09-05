@@ -2,17 +2,94 @@
   "manifest_version": 3,
   "name": "Guardian Vault",
   "version": "0.1.0",
-  "description": "Decentralized ckBTC wallet with guardian recovery (browser extension).",
+  "description": "Decentralized ckBTC wallet with guardian recovery on the Internet Computer. No seed phrases, social recovery via guardians, threshold ECDSA signing.",
+  "homepage_url": "https://guardian-vault.icp0.io",
+  
   "action": {
-    "default_title": "Guardian Vault",
+    "default_title": "Guardian Vault - ckBTC Wallet",
     "default_popup": "popup.html"
   },
-  "background": { "service_worker": "background.js", "type": "module" },
-  "permissions": ["storage"],
-  "host_permissions": ["https://ic0.app/*", "http://127.0.0.1:4943/*"],
+  
+  "background": { 
+    "service_worker": "background.js", 
+    "type": "module" 
+  },
+  
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.ic0.app/*",
+        "https://*.icp0.io/*",
+        "https://*.internetcomputer.org/*",
+        "http://127.0.0.1:4943/*",
+        "http://localhost:3000/*"
+      ],
+      "js": ["content-script.js"],
+      "run_at": "document_end"
+    }
+  ],
+  
+  "permissions": [
+    "storage",
+    "activeTab",
+    "contextMenus",
+    "alarms",
+    "scripting"
+  ],
+  
+  "host_permissions": [
+    "https://*.ic0.app/*",
+    "https://*.icp0.io/*",
+    "https://*.internetcomputer.org/*",
+    "http://127.0.0.1:4943/*",
+    "http://localhost:3000/*"
+  ],
+  
+  "externally_connectable": {
+    "matches": [
+      "https://*.ic0.app/*",
+      "https://*.icp0.io/*",
+      "https://*.internetcomputer.org/*",
+      "http://127.0.0.1:4943/*",
+      "http://localhost:3000/*"
+    ]
+  },
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["popup.html", "popup.bundle.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  
   "icons": {
-    "16": "../public/favicon.ico",
-    "48": "../public/favicon.ico",
-    "128": "../public/favicon.ico"
-  }
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  
+  "author": "Guardian Vault Team",
+  
+  "short_name": "GuardianVault",
+  
+  "commands": {
+    "open-popup": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+G",
+        "mac": "Command+Shift+G"
+      },
+      "description": "Open Guardian Vault popup"
+    },
+    "quick-send": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Quick send ckBTC"
+    }
+  },
+  
+  "options_page": "options.html",
+  
+  "minimum_chrome_version": "88"
 }

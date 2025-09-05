@@ -5,20 +5,71 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Guardian Vault</title>
     <style>
-      body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; width: 320px; }
-      .btn { background: #29ABE2; color:#0a0b0f; border:none; padding:.5rem .8rem; border-radius:8px; cursor:pointer; font-weight:600; }
-      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        margin: 0;
+        padding: 0;
+        width: 360px;
+        min-height: 500px;
+        overflow-x: hidden;
+      }
+      
+      #root {
+        width: 100%;
+        min-height: 100vh;
+      }
+      
+      /* Loading state */
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+        color: #F1F5F9;
+      }
+      
+      .spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(41, 171, 226, 0.3);
+        border-top: 2px solid #29ABE2;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 10px;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      /* Ensure proper styling for React components */
+      button:hover {
+        transform: translateY(-1px);
+        transition: all 0.2s ease;
+      }
+      
+      button:active {
+        transform: translateY(0);
+      }
     </style>
   </head>
   <body>
-    <h3>Guardian Vault</h3>
-    <p class="mono" id="status">Ready</p>
-    <button class="btn" id="ping">Ping Background</button>
-    <script type="module">
-      document.getElementById('ping').onclick = async () => {
-        const res = await chrome.runtime.sendMessage({ ping: true });
-        document.getElementById('status').textContent = JSON.stringify(res);
-      };
-    </script>
+    <div id="root">
+      <div class="loading">
+        <div class="spinner"></div>
+        Loading Guardian Vault...
+      </div>
+    </div>
+    
+    <!-- React and dependencies will be bundled -->
+    <script type="module" src="popup.bundle.js"></script>
   </body>
-  </html>
+</html>

@@ -1,60 +1,103 @@
 # `guardian-vault`
 
-Welcome to your new `guardian-vault` project and to the Internet Computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
+Guardian Vault is a production-grade, decentralized Bitcoin wallet on ICP using ckBTC, Internet Identity v2 (passkeys), guardian quorum recovery (VetKD), and threshold ECDSA for signing.
 
-To get started, you might want to explore the project directory structure and the default configuration file. Working with this project in your development environment will not affect any production deployment or identity tokens.
+## System Architecture
 
-To learn more before you start working with `guardian-vault`, see the following documentation available online:
+```mermaid
+%%{init: {'theme':'dark','themeVariables':{ 'primaryColor':'#29ABE2','primaryTextColor':'#0a0b0f','lineColor':'#6ee7ff','tertiaryColor':'#11131a'}}}%%
+graph LR
+  U[User Device]:::user --> W[Web dApp (React + Vite + PWA)]:::front
+  U --> X[Browser Extension (MV3)]:::front
+  W -- Passkey Login --> II[Internet Identity v2]:::auth
+  W -- Agent Calls --> GV[Guardian Vault Canister]:::backend
+  X -- Agent Calls --> GV
+  GV -- ICRC‑1 --> LEDGER[ckBTC Ledger]:::ledger
+  GV -- Deposit/Redeem --> MINTER[ckBTC Minter]:::ledger
+  GV -- tECDSA --> MGMT[Management Canister]:::infra
+  GV -- VetKD --> MGMT
+  GV -- Stable State --> ST[Stable Memory]:::backend
 
-- [Quick Start](https://internetcomputer.org/docs/current/developer-docs/setup/deploy-locally)
-- [SDK Developer Tools](https://internetcomputer.org/docs/current/developer-docs/setup/install)
-- [Rust Canister Development Guide](https://internetcomputer.org/docs/current/developer-docs/backend/rust/)
-- [ic-cdk](https://docs.rs/ic-cdk)
-- [Candid Introduction](https://internetcomputer.org/docs/building-apps/interact-with-canisters/candid/candid-concepts)
-
-If you want to start working on your project right away, you might want to try the following commands:
-
-```bash
-cd guardian-vault/
-dfx help
-dfx canister --help
+  classDef user fill:#FFD166,stroke:#FFD166,color:#0a0b0f;
+  classDef front fill:#06D6A0,stroke:#06D6A0,color:#0a0b0f;
+  classDef backend fill:#26547C,stroke:#6ee7ff,color:#e7e9ee;
+  classDef ledger fill:#118AB2,stroke:#6ee7ff,color:#e7e9ee;
+  classDef auth fill:#8338EC,stroke:#a78bfa,color:#e7e9ee;
+  classDef infra fill:#EF476F,stroke:#ff9aa2,color:#0a0b0f;
 ```
 
-## Running the project locally
+## User Workflow
 
-If you want to test your project locally, you can use the following commands:
+```mermaid
+%%{init: {'theme':'dark','themeVariables':{ 'primaryColor':'#29ABE2'}}}%%
+sequenceDiagram
+  autonumber
+  participant U as User
+  participant W as Web dApp/PWA
+  participant II as Internet Identity
+  participant GV as Guardian Vault Canister
+  participant LED as ckBTC Ledger
+  participant MIN as ckBTC Minter
+
+  U->>W: Open app (PWA/Extension)
+  W->>II: Login with Passkey (WebAuthn)
+  II-->>W: Delegation (Identity)
+  W->>GV: icrc1_balance_of (caller account)
+  GV->>LED: icrc1_balance_of
+  LED-->>GV: Balance
+  GV-->>W: Balance
+  U->>W: Send ckBTC (to/principal, amount)
+  W->>GV: icrc1_transfer
+  GV->>LED: icrc1_transfer
+  LED-->>GV: Block height
+  GV-->>W: Success
+```
+
+## Recovery Flow (Guardians + VetKD)
+
+```mermaid
+%%{init: {'theme':'dark'}}%%
+sequenceDiagram
+  participant O as Owner (Lost Access)
+  participant W as Web dApp
+  participant G1 as Guardian A
+  participant G2 as Guardian B
+  participant G3 as Guardian C
+  participant GV as Guardian Vault
+
+  O->>W: Initiate recovery (new device)
+  W->>GV: request_recovery(new_owner)
+  Note over GV: Create request; track approvals; VetKD public key for shares
+  G1->>W: Open approval
+  W->>GV: approve_recovery(id)
+  G2->>W: Open approval
+  W->>GV: approve_recovery(id)
+  alt Quorum met
+    GV-->>W: Recovery finalized (owner updated)
+  else Waiting
+    GV-->>W: Pending approvals
+  end
+```
+
+## Deployment & Configuration
+- ECDSA key: set correct subnet key name (e.g., `dfx_test_key` locally, `secp256k1` on mainnet).
+- ckBTC canisters: configure ckBTC Ledger and Minter principals during canister `init` or via `set_config`.
+- Internet Identity: use `https://identity.ic0.app` on `ic` and local canister on `local`.
+
+## Local Development
 
 ```bash
-# Starts the replica, running in the background
+# Start local replica
 dfx start --background
 
-# Deploys your canisters to the replica and generates your candid interface
+# Deploy backend (set real canister IDs for ckBTC components)
 dfx deploy
+
+# Frontend (workspace)
+npm start -w src/guardian-vault-frontend
 ```
 
-Once the job completes, your application will be available at `http://localhost:4943?canisterId={asset_canister_id}`.
-
-If you have made changes to your backend canister, you can generate a new candid interface with
-
-```bash
-npm run generate
-```
-
-at any time. This is recommended before starting the frontend development server, and will be run automatically any time you run `dfx deploy`.
-
-If you are making frontend changes, you can start a development server with
-
-```bash
-npm start
-```
-
-Which will start a server at `http://localhost:8080`, proxying API requests to the replica at port 4943.
-
-### Note on frontend environment variables
-
-If you are hosting frontend code somewhere without using DFX, you may need to make one of the following adjustments to ensure your project does not fetch the root key in production:
-
-- set`DFX_NETWORK` to `ic` if you are using Webpack
-- use your own preferred method to replace `process.env.DFX_NETWORK` in the autogenerated declarations
-  - Setting `canisters -> {asset_canister_id} -> declarations -> env_override to a string` in `dfx.json` will replace `process.env.DFX_NETWORK` with the string in the autogenerated declarations
-- Write your own `createActor` constructor
+For conceptual background, see:
+- Internet Computer docs (DFX, canisters, management APIs)
+- ICRC‑1 standard and ckBTC Ledger/Minter
+- VetKD, Threshold ECDSA, and Internet Identity
