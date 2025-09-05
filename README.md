@@ -7,8 +7,8 @@ Guardian Vault is a production-grade, decentralized Bitcoin wallet on ICP using 
 ```mermaid
 %%{init: {'theme':'dark','themeVariables':{ 'primaryColor':'#29ABE2','primaryTextColor':'#0a0b0f','lineColor':'#6ee7ff','tertiaryColor':'#11131a'}}}%%
 graph LR
-  U[User Device]:::user --> W[Web dApp (React + Vite + PWA)]:::front
-  U --> X[Browser Extension (MV3)]:::front
+  U[User Device]:::user --> W["Web dApp (React + Vite + PWA)"]:::front
+  U --> X["Browser Extension (MV3)"]:::front
   W -- Passkey Login --> II[Internet Identity v2]:::auth
   W -- Agent Calls --> GV[Guardian Vault Canister]:::backend
   X -- Agent Calls --> GV
@@ -67,7 +67,7 @@ sequenceDiagram
 
   O->>W: Initiate recovery (new device)
   W->>GV: request_recovery(new_owner)
-  Note over GV: Create request; track approvals; VetKD public key for shares
+  Note over GV: Create request, track approvals,<br/>VetKD public key for shares
   G1->>W: Open approval
   W->>GV: approve_recovery(id)
   G2->>W: Open approval
