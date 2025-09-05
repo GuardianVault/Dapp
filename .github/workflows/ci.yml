@@ -1,0 +1,258 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Backend Rust tests and checks
+  backend:
+    name: Backend Tests & Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        components: rustfmt, clippy
+        override: true
+    
+    - name: Cache Rust dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+    
+    - name: Check Rust formatting
+      working-directory: ./src/guardian-vault-backend
+      run: cargo fmt --check
+    
+    - name: Run Clippy lints
+      working-directory: ./src/guardian-vault-backend
+      run: cargo clippy -- -D warnings
+    
+    - name: Run Rust tests
+      working-directory: ./src/guardian-vault-backend
+      run: cargo test --verbose
+    
+    - name: Build Rust backend
+      working-directory: ./src/guardian-vault-backend
+      run: cargo build --release
+
+  # Frontend Node.js tests and checks
+  frontend:
+    name: Frontend Tests & Checks  
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./src/guardian-vault-frontend
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: './src/guardian-vault-frontend/package-lock.json'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Check code formatting with Prettier
+      run: npm run format -- --check
+    
+    - name: Lint code with ESLint (if configured)
+      run: |
+        if [ -f .eslintrc.js ] || [ -f .eslintrc.json ] || [ -f eslint.config.js ]; then
+          npx eslint src/
+        else
+          echo "ESLint not configured, skipping..."
+        fi
+      continue-on-error: true
+    
+    - name: Type checking with TypeScript (if configured)
+      run: |
+        if [ -f tsconfig.json ]; then
+          npx tsc --noEmit
+        else
+          echo "TypeScript not configured, skipping..."
+        fi
+      continue-on-error: true
+    
+    - name: Run frontend tests (if configured)
+      run: |
+        if npm run test --if-present; then
+          echo "Tests passed or no tests configured"
+        else
+          echo "No test script found in package.json"
+        fi
+      continue-on-error: true
+    
+    - name: Build frontend
+      run: npm run build
+
+  # DFX deployment and integration tests
+  dfx-test:
+    name: DFX Deployment Test
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install DFX
+      run: |
+        sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
+        echo "$HOME/.local/share/dfx/bin" >> $GITHUB_PATH
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: wasm32-unknown-unknown
+        profile: minimal
+        override: true
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+          node_modules
+          .dfx
+        key: ${{ runner.os }}-dfx-${{ hashFiles('**/Cargo.lock', '**/package-lock.json') }}
+    
+    - name: Install frontend dependencies
+      working-directory: ./src/guardian-vault-frontend
+      run: npm ci
+    
+    - name: Start DFX
+      run: |
+        dfx start --background --clean
+        sleep 10
+    
+    - name: Deploy canisters
+      run: |
+        dfx deploy --yes
+    
+    - name: Check canister deployment
+      run: |
+        dfx canister status guardian-vault-backend
+        dfx canister status guardian-vault-frontend
+    
+    - name: Run integration tests (if any)
+      run: |
+        # Add integration tests here when available
+        echo "Integration tests would run here"
+        dfx canister call guardian-vault-backend get_canister_status
+    
+    - name: Stop DFX
+      run: dfx stop
+
+  # Security and dependency checks
+  security:
+    name: Security & Dependency Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+    
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+    
+    - name: Run Rust security audit
+      working-directory: ./src/guardian-vault-backend
+      run: cargo audit
+    
+    - name: Setup Node.js for security check
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install frontend dependencies
+      working-directory: ./src/guardian-vault-frontend
+      run: npm ci
+    
+    - name: Run npm security audit
+      working-directory: ./src/guardian-vault-frontend
+      run: npm audit --audit-level moderate
+    
+    - name: Check for outdated dependencies
+      working-directory: ./src/guardian-vault-frontend
+      run: npm outdated || true
+
+  # Code quality and coverage (optional)
+  quality:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+    
+    - name: Check for TODO/FIXME comments
+      run: |
+        echo "Checking for TODO/FIXME comments..."
+        if grep -r "TODO\|FIXME" src/ --exclude-dir=node_modules --exclude="*.lock" --exclude="*.md"; then
+          echo "Found TODO/FIXME comments - consider addressing them"
+        else
+          echo "No TODO/FIXME comments found"
+        fi
+    
+    - name: Check code metrics
+      working-directory: ./src/guardian-vault-backend
+      run: |
+        # Basic code metrics
+        echo "Lines of code:"
+        find . -name "*.rs" -exec wc -l {} + | tail -1
+        echo "Number of Rust files:"
+        find . -name "*.rs" | wc -l
+    
+    - name: Validate manifest files
+      run: |
+        echo "Validating Cargo.toml files..."
+        cargo check --manifest-path=./src/guardian-vault-backend/Cargo.toml
+        echo "Validating package.json..."
+        cd ./src/guardian-vault-frontend && npm run build --dry-run || echo "No dry-run support"

@@ -1,89 +1,141 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { initAuth, login } from './identity';
-import { backendActor } from './agent';
-
-function formatIcpNat(n) {
-  try {
-    // candid Nat in JS binding is a BigInt-like or string; normalize to string
-    return n?.toString?.() ?? String(n);
-  } catch {
-    return String(n);
-  }
-}
+import { useAuth } from './hooks/useAuth';
+import { useBackend } from './hooks/useBackend';
+import { Button } from './components/Button';
+import { Card } from './components/Card';
+import { WalletPanel } from './components/WalletPanel';
+import { RecoveryPanel } from './components/RecoveryPanel';
+import { AnimatedHero } from './components/AnimatedHero';
+import { UserIcon, StatusIndicator } from './components/Icons';
 
 export default function App() {
-  const [isAuthed, setIsAuthed] = useState(false);
-  const [principal, setPrincipal] = useState('');
-  const [balance, setBalance] = useState('0');
-  const [status, setStatus] = useState('');
-
-  useEffect(() => {
-    (async () => {
-      const { isAuthenticated, identity } = await initAuth();
-      if (isAuthenticated && identity) {
-        setIsAuthed(true);
-        setPrincipal(identity.getPrincipal().toText());
-        refreshBalance();
-      }
-    })();
-  }, []);
-
-  async function doLogin() {
-    await login();
-    const { isAuthenticated, identity } = await initAuth();
-    if (isAuthenticated && identity) {
-      setIsAuthed(true);
-      setPrincipal(identity.getPrincipal().toText());
-      await refreshBalance();
-    }
-  }
-
-  async function refreshBalance() {
-    try {
-      setStatus('Fetching ckBTC balance…');
-      const actor = await backendActor();
-      const res = await actor.ckbtc_balance_of([]);
-      if ('ok' in res) setBalance(formatIcpNat(res.ok));
-      else setStatus(`Balance error: ${res.err}`);
-    } catch (e) {
-      setStatus(`Error: ${String(e)}`);
-    } finally {
-      setTimeout(() => setStatus(''), 1500);
-    }
-  }
+  const { ready, identity, principal, login, logout } = useAuth();
+  const actor = useBackend(identity);
+  const authed = !!identity;
 
   return (
-    <main className="app">
-      <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="hero"
-      >
-        <img src="/logo2.svg" alt="Guardian Vault" height="40" />
-        <h1>Guardian Vault</h1>
-        <p className="tag">Decentralized ckBTC wallet with guardian recovery</p>
-      </motion.header>
+    <div className="min-h-screen bg-animated relative overflow-hidden">
+      <main className="app relative z-10">
+        {/* Hero Section */}
+        {!authed && (
+          <motion.header
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            className="mb-12"
+          >
+            <AnimatedHero />
+          </motion.header>
+        )}
 
-      <section className="panel">
-        {!isAuthed ? (
-          <button className="btn" onClick={doLogin}>Sign in with Internet Identity</button>
+        {!authed ? (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.0, duration: 0.8 }}
+            className="max-w-md mx-auto"
+          >
+            <Card variant="glow" className="text-center">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-white">
+                    Welcome to Guardian Vault
+                  </h2>
+                  <p className="text-neutral-300">
+                    Secure your ckBTC with guardian-based recovery and decentralized custody.
+                  </p>
+                </div>
+                
+                <div className="space-y-4">
+                  <Button 
+                    onClick={login} 
+                    disabled={!ready}
+                    loading={!ready}
+                    size="lg"
+                    className="w-full"
+                  >
+                    {!ready ? 'Connecting to Internet Identity...' : 'Sign in with Internet Identity'}
+                  </Button>
+                  
+                  <div className="flex justify-center">
+                    <StatusIndicator 
+                      status={ready ? "online" : "warning"} 
+                      className="text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Feature highlights */}
+                <div className="pt-4 border-t border-neutral-600">
+                  <div className="grid grid-cols-2 gap-4 text-xs text-neutral-400">
+                    <div className="flex flex-col items-center space-y-1">
+                      <div className="text-brand-primary text-lg">🔐</div>
+                      <span>No Seed Phrase</span>
+                    </div>
+                    <div className="flex flex-col items-center space-y-1">
+                      <div className="text-brand-primary text-lg">👥</div>
+                      <span>Social Recovery</span>
+                    </div>
+                    <div className="flex flex-col items-center space-y-1">
+                      <div className="text-brand-primary text-lg">₿</div>
+                      <span>Chain-Key BTC</span>
+                    </div>
+                    <div className="flex flex-col items-center space-y-1">
+                      <div className="text-brand-primary text-lg">∞</div>
+                      <span>On-Chain</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </motion.div>
         ) : (
-          <div className="grid">
-            <div>
-              <div className="label">Principal</div>
-              <div className="mono small">{principal}</div>
-            </div>
-            <div>
-              <div className="label">ckBTC Balance</div>
-              <div className="big">{balance}</div>
-              <button className="btn" onClick={refreshBalance}>Refresh</button>
-            </div>
+          <div className="space-y-6">
+            {/* User Header */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <Card className="">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-4">
+                    <div className="glass-light p-3 rounded-xl">
+                      <UserIcon className="w-6 h-6 text-brand-primary" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-neutral-400">Signed in as</div>
+                      <div className="font-mono text-sm text-white break-all max-w-xs truncate">
+                        {principal?.toText?.() ?? String(principal)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <StatusIndicator status="online" />
+                    <Button 
+                      onClick={logout}
+                      variant="danger"
+                      size="sm"
+                    >
+                      Sign Out
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+
+            {/* Wallet Panel */}
+            <WalletPanel 
+              actor={actor} 
+              principal={principal}
+            />
+
+            {/* Recovery Panel */}
+            <RecoveryPanel actor={actor} />
           </div>
         )}
-        {status && <div className="status">{status}</div>}
-      </section>
-    </main>
+      </main>
+    </div>
   );
 }

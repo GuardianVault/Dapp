@@ -12,6 +12,8 @@ crate-type = ["cdylib"]
 candid = "0.10"
 ic-cdk = "0.18"
 ic-cdk-timers = "0.12" # Feel free to remove this dependency if you don't need timers
+ic-stable-structures = "0.6"
 serde = { version = "1", features = ["derive"] }
 num-bigint = "0.4"
 num-traits = "0.2"
+sha2 = "0.10"

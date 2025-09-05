@@ -1,0 +1,182 @@
+name: Maintenance & Updates
+
+on:
+  schedule:
+    # Run weekly on Mondays at 09:00 UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  security-audit:
+    name: Weekly Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+    
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+    
+    - name: Run Rust security audit
+      working-directory: ./src/guardian-vault-backend
+      run: |
+        echo "## Rust Security Audit" >> audit-report.md
+        echo "Generated: $(date)" >> audit-report.md
+        echo "" >> audit-report.md
+        cargo audit >> audit-report.md || echo "Security vulnerabilities found!"
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install frontend dependencies
+      working-directory: ./src/guardian-vault-frontend
+      run: npm ci
+    
+    - name: Run npm security audit
+      working-directory: ./src/guardian-vault-frontend
+      run: |
+        echo "## NPM Security Audit" >> ../guardian-vault-backend/audit-report.md
+        echo "" >> ../guardian-vault-backend/audit-report.md
+        npm audit --audit-level moderate >> ../guardian-vault-backend/audit-report.md || echo "NPM vulnerabilities found!"
+    
+    - name: Upload audit report
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-audit-report
+        path: ./src/guardian-vault-backend/audit-report.md
+
+  dependency-check:
+    name: Check for Dependency Updates
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+    
+    - name: Install cargo-outdated
+      run: cargo install cargo-outdated
+    
+    - name: Check for outdated Rust dependencies
+      working-directory: ./src/guardian-vault-backend
+      run: |
+        echo "## Outdated Rust Dependencies" >> dependency-report.md
+        echo "Generated: $(date)" >> dependency-report.md
+        echo "" >> dependency-report.md
+        cargo outdated >> dependency-report.md || echo "All dependencies up to date"
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Check for outdated NPM dependencies
+      working-directory: ./src/guardian-vault-frontend
+      run: |
+        echo "## Outdated NPM Dependencies" >> ../guardian-vault-backend/dependency-report.md
+        echo "" >> ../guardian-vault-backend/dependency-report.md
+        npm outdated >> ../guardian-vault-backend/dependency-report.md || echo "All NPM dependencies up to date"
+    
+    - name: Upload dependency report
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-update-report
+        path: ./src/guardian-vault-backend/dependency-report.md
+
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        components: clippy
+        profile: minimal
+        override: true
+    
+    - name: Generate code quality report
+      run: |
+        echo "# Code Quality Report" > quality-report.md
+        echo "Generated: $(date)" >> quality-report.md
+        echo "" >> quality-report.md
+        
+        echo "## Repository Statistics" >> quality-report.md
+        echo "- Total lines of Rust code: $(find src/guardian-vault-backend -name "*.rs" -exec wc -l {} + | tail -1 | awk '{print $1}')" >> quality-report.md
+        echo "- Total Rust files: $(find src/guardian-vault-backend -name "*.rs" | wc -l)" >> quality-report.md
+        echo "- Total lines of JS/JSX code: $(find src/guardian-vault-frontend/src -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" -exec wc -l {} + 2>/dev/null | tail -1 | awk '{print $1}' || echo '0')" >> quality-report.md
+        echo "" >> quality-report.md
+        
+        echo "## TODO/FIXME Comments" >> quality-report.md
+        TODO_COUNT=$(grep -r "TODO\|FIXME" src/ --exclude-dir=node_modules --exclude="*.lock" --exclude="*.md" | wc -l || echo "0")
+        echo "- Found ${TODO_COUNT} TODO/FIXME comments" >> quality-report.md
+        
+        if [ "$TODO_COUNT" -gt 0 ]; then
+          echo "" >> quality-report.md
+          echo "### Details:" >> quality-report.md
+          grep -r "TODO\|FIXME" src/ --exclude-dir=node_modules --exclude="*.lock" --exclude="*.md" >> quality-report.md || true
+        fi
+    
+    - name: Upload quality report
+      uses: actions/upload-artifact@v3
+      with:
+        name: code-quality-report  
+        path: quality-report.md
+
+  canister-metrics:
+    name: Monitor Canister Metrics
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install DFX
+      run: |
+        sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
+        echo "$HOME/.local/share/dfx/bin" >> $GITHUB_PATH
+    
+    - name: Setup DFX identity (if deploying to IC)
+      run: |
+        # This would require IC deployment secrets
+        echo "Canister metrics monitoring would be implemented here"
+        echo "This could include cycle balance checks, memory usage, etc."
+    
+    - name: Generate metrics report
+      run: |
+        echo "# Canister Metrics Report" > metrics-report.md
+        echo "Generated: $(date)" >> metrics-report.md
+        echo "" >> metrics-report.md
+        echo "Note: This is a placeholder for actual canister metrics" >> metrics-report.md
+        echo "In production, this would monitor:" >> metrics-report.md
+        echo "- Cycle balance" >> metrics-report.md
+        echo "- Memory usage" >> metrics-report.md
+        echo "- Transaction volume" >> metrics-report.md
+        echo "- Error rates" >> metrics-report.md
+    
+    - name: Upload metrics report
+      uses: actions/upload-artifact@v3
+      with:
+        name: canister-metrics-report
+        path: metrics-report.md
